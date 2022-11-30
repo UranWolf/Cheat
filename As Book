@@ -1,0 +1,422 @@
+75. // @namespace    https://github.com/ChenZihan-sudo/Youtube-AD-blocker/
+76. // @version      6.0.1 [Beta]
+77. // @author       ChenZihan
+78. // @match        *.youtube.com/*
+79. // @icon
+80. // @grant        none
+81. // ==/UserScript==
+82.  
+83. (function () {
+84.     let rmAry = new Array();
+85.     let { href } = location;
+86.  
+87.     setInterval(() => {
+88.         let bufHref = location.href; //detect the change of href and execute 
+89.  
+90.         let detectBasicAd; //detect the activity of insert ad in video
+91.         if (document.getElementsByClassName("ytp-ad-preview-text").length) {
+92.             detectBasicAd = (document.getElementsByClassName("ytp-ad-preview-text")[0].innerHTML.constructor == String);
+93.         }
+94.  
+95.         //* skipShitVideoAD() can only reset by change of href
+96.         //! check if the frame exist
+97.         if (bufHref != href && document.getElementById("iframe")) {
+98.             console.log("isCallSkipShitVideoAD = false");
+99.             isCallSkipShitVideoAD = false;
+100.         }
+101.  
+102.         //* check change of href
+103.         if (bufHref != href) {
+104.             console.log("[YT AD block] Detect the change of href.", href);
+105.             href = bufHref;
+106.             executeManager('f');
+107.         }
+108.  
+109.         //* check the insert AD
+110.         if (detectBasicAd) {
+111.             console.log("[YT AD block] Found the insert AD.");
+112.             executeManager('f');
+113.         }
+114.     }, 500);
+115.  
+116.     if (location.hostname.search("youtube") != -1) {
+117.         addBData('id', 'player-ads', 'f'); //add data
+118.         addBData('id', 'masthead-ad', 'f');
+119.         addBData('path', '#YtKevlarVisibilityIdentifier', 'f');
+120.         addBData('class', 'ytp-ad-overlay-container', 'a');
+121.         addBData('csClick', [
+122.             ['ytp-ad-feedback-dialog-reason-input', 'randomPara(0, 2)'],
+123.             ['ytp-ad-feedback-dialog-confirm-button', '0'], 1
+124.         ], 'f');
+125.         addBData('csClick', [
+126.             ['ytp-ad-skip-button', '0'], 0
+127.         ], 'a');
+128.         addBData('tag', 'ytd-display-ad-renderer', 'a');
+129.         addBData("exe", "skipShitVideoAD();", 'f');
+130.         addBData("exe", "addBlockText();", 'f');
+131.         addBData("remTactic1", ["badge-style-type-ad", 7, "ytd-section-list-renderer"], 'f');
+132.         addBData("remTactic1", ["badge-style-type-ad", 5, "ytd-item-section-renderer"], 'f');
+133.         addBData("remTactic1", ["badge-style-type-ad", 5, "ytd-watch-next-secondary-results-renderer"], 'f');
+134.  
+135.         executeManager(); //execute at first time
+136.     }
+137.  
+138.  
+139.     /**
+140.      * @param {String} exePara (undefined) or ('f' => execute the data for 20 times, every time interval 500ms )
+141.      * */
+142.     function executeManager(exePara) {
+143.         let len = rmAry.length;
+144.  
+145.         for (let i = 0; i < len; i++) {
+146.             if (rmAry[i][2] == 'a' && exePara == undefined) {
+147.  
+148.                 setInterval(() => {
+149.                     // console.log("[YT AD block] Execute remove insert AD loop");
+150.                     execute(); //always execute the data
+151.                 }, 800);
+152.  
+153.             } else if (rmAry[i][2] == 'f' || exePara == 'f') { //execute only in first time
+154.  
+155.                 // console.log("[YT AD block] Execute remove AD");
+156.  
+157.                 window.onload = function () { intervalExecute(); } //if player already load
+158.                 if (exePara == 'f') { intervalExecute(); }
+159.                 intervalExecute();
+160.  
+161.                 function intervalExecute() {
+162.                     let times = 0;
+163.                     let timer = setInterval(() => {
+164.                         times++;
+165.                         if (times > 20) { clearInterval(timer); };
+166.                         execute(); //excute 20 times in every 500ms
+167.                     }, 500);
+168.                 }
+169.             }
+170.  
+171.             function execute() {
+172.                 let isUniExeTag = rmAry[i][0] == "universal"; //Check is universal tag or not
+173.                 if (!isUniExeTag) {
+174.                     let exeTag = rmAry[i][0]; //Execute Type
+175.                     let exeData = rmAry[i][1]; //Data container of execute type
+176.                     executeBase(exeTag, exeData);
+177.                 } else {
+178.                     //[Beta] Execute Type: universal
+179.                     // let exeLength = rmAry[i][1].length;
+180.                     // for (let layeri = 0; layeri < exeLength; layeri++) {
+181.                     //     let layerExeData = rmAry[i][1][layeri];
+182.                     //     let exeTag = layerExeData[0];
+183.                     //     let exeData = layerExeData[1];
+184.                     //     executeBase(layerExeData, exeTag, exeData);
+185.                     // }
+186.                 };
+187.             }
+188.  
+189.  
+190.             function executeBase(exeTag, exeData) {
+191.                 let cckClassDataPosi, cckType, cckCs;
+192.                 switch (exeTag) {
+193.                     case 'id':
+194.                         idRm(exeData);
+195.                         break;
+196.                     case 'path':
+197.                         pathRm(exeData);
+198.                         break;
+199.                     case 'class':
+200.                         classRm(exeData);
+201.                         break;
+202.                     case 'csClick':
+203.                         {
+204.                             len = rmAry[i][1].length - 1; //find last one num
+205.                             cckClassDataPosi = rmAry[i][1][len];
+206.                             cckType = rmAry[i][1][len].constructor;
+207.  
+208.                             if (cckType == Number) {
+209.                                 cckCs = rmAry[i][1][cckClassDataPosi][0];
+210.                             } else if (cckType == String) {
+211.                                 cckCs = rmAry[i][1][2];
+212.                             }
+213.  
+214.                             csClick(cckCs, rmAry[i][1]);
+215.                             break;
+216.                         }
+217.                     case 'tag':
+218.                         tagRm(exeData);
+219.                         break;
+220.                     case 'exe':
+221.                         { dataExe(exeData); }
+222.                         break;
+223.                     case 'remTactic1':
+224.                         {
+225.                             let className = exeData[0];
+226.                             let parentNum = exeData[1];
+227.                             let expParentClassName = exeData[2];
+228.                             remTactic1(className, parentNum, expParentClassName);
+229.                         }
+230.                         break;
+231.                 }
+232.             }
+233.         }
+234.     }
+235.  
+236.     function addUniData(d2, d3) {
+237.         addBData('universal', d2, d3);
+238.     }
+239.  
+240.     function addExeData(d2, d3) {
+241.         addBData('exe', d2, d3);
+242.     }
+243.  
+244.     /**
+245.      * @param d1 - Execute Type: 'id' => Use document.getElementById() to remove
+246.      * @param d1 - Execute Type: 'path' => Use document.querySelector() to remove
+247.      * @param d1 - Execute Type: 'class' => Use document.getElementsByClassName() to remove 
+248.      * @param d1 - Execute Type: 'csClick' => css click event
+249.      * @param d1 - Execute Type: 'tag' => Use document.getElementsByTagName() to remove
+250.      * @param d1 - Execute Type: 'exe' => Use eval to execute the code
+251.      * @param d1 - Execute Type: 'remTactic1' => See remTactic1();
+252.      * @param d2 - Data container of d1 execute type
+253.      * @param d3 - 'a' => Always execute the data, interval 800ms
+254.      * @param d3 - 'f' => First execute the data for 20 times, every time interval 500ms
+255.      */
+256.     function addBData(d1, d2, d3) {
+257.         let len = apdAry(rmAry);
+258.         rmAry[len][0] = d1;
+259.         rmAry[len][1] = d2;
+260.         rmAry[len][2] = d3;
+261.         rmAry[len][3] = rmAry.length - 1;
+262.     }
+263.  
+264.     /**
+265.      * By finding a className to find higher level of its parent element by class name and remove it
+266.      * @param {String} className The child node class name (signature class name recommend)
+267.      * @param {Number} parentNum How many node layers it parent elements have to get className(child node)
+268.      * @param {String} expParentClassName The parent node class name(signature class name recommend)
+269.      */
+270.     function remTactic1(className, parentNum, expParentClassName) {
+271.         var sl_length = document.getElementsByClassName(className).length;
+272.         if (sl_length != 0) {
+273.             if (parentNum == 0) {
+274.                 var len = document.getElementsByClassName(className).length;
+275.                 for (let i = 0; i < len; i++) {
+276.                     document.getElementsByClassName(className)[0].remove();
+277.                 }
+278.             } else {
+279.                 for (var s_i = 0; s_i < sl_length; s_i++) {
+280.                     var parent = ".parentElement";
+281.                     var finalParent = "";
+282.                     for (var p_i = 0; p_i < parentNum; p_i++) {
+283.                         finalParent = finalParent + parent;
+284.                     }
+285.  
+286.                     //Find the parent name
+287.                     var parentNode = "document.getElementsByClassName('" + className + "')[0]" + finalParent;
+288.                     var parentNodeClassListLength = eval(parentNode + ".classList.length");
+289.                     var isParentClassName = false;
+290.                     for (let ii = 0; ii < parentNodeClassListLength; ii++) {
+291.                         var parentClassName = eval(parentNode + ".classList[" + ii + "]");
+292.                         if (parentClassName == expParentClassName) {
+293.                             isParentClassName = true;
+294.                             break;
+295.                         }
+296.                     }
+297.  
+298.                     if (isParentClassName) {
+299.                         eval("document.getElementsByClassName('" + className + "')[0]" + finalParent + ".remove();");
+300.                         remTactic1(className, parentNum, expParentClassName);
+301.                         break;
+302.                     }
+303.                 }
+304.             }
+305.         }
+306.     }
+307.  
+308.     function csClick(cckCs, exAry) {
+309.         if (document.getElementsByClassName(cckCs).length != 0) {
+310.             let len = exAry.length;
+311.             for (let i = 0; i < len; i++) {
+312.                 if (exAry[i].constructor != Array) { break; } //cck data type
+313.                 document.getElementsByClassName(exAry[i][0])[eval(exAry[i][1])].click(); //choose feedback option
+314.             }
+315.         }
+316.     }
+317.  
+318.     function classRm(_class) {
+319.         let times = 0;
+320.         while (document.getElementsByClassName(_class).length != 0) {
+321.             times++;
+322.             if (times > 100) { break; }
+323.             document.getElementsByClassName(_class)[0].remove();
+324.         }
+325.     }
+326.  
+327.     function idRm(id) {
+328.         if (document.getElementById(id) != null) {
+329.             document.getElementById(id).remove();
+330.         }
+331.     }
+332.  
+333.     function pathRm(path) {
+334.         if (document.querySelector(path) != null) {
+335.             document.querySelector(path).remove();
+336.         }
+337.     }
+338.  
+339.     function tagRm(tag) {
+340.         let times = 0;
+341.         while (document.getElementsByTagName(tag).length != 0) {
+342.             times++;
+343.             if (times > 100) { break; }
+344.             document.getElementsByTagName(tag)[0].parentNode.parentNode.remove();
+345.         }
+346.     }
+347.  
+348.     function dataExe(exeData) {
+349.         if (exeData) {
+350.             let isArray = exeData.constructor == Array;
+351.             if (!isArray) {
+352.                 eval(exeData);
+353.             } else {
+354.                 //[Beta Test] Execute Type: universal
+355.                 if (exeData[0]) {
+356.                     let finalData = exeData[0] + exeData[1];
+357.                     eval(finalData);
+358.                 }
+359.             }
+360.         }
+361.     }
+362.  
+363.     function randomPara(min, max) {
+364.         return Math.floor(Math.random() * (max - min + 1)) + min;
+365.     }
+366.  
+367.     function apdAry(ary) {
+368.         ary.splice(ary.length, 0, []);
+369.         return ary.length - 1;
+370.     }
+371.  
+372.     function addBlockText() {
+373.         //本屏蔽器自带嘲讽功能[doge]
+374.         if (document.getElementById("ad-text:a") != (null || undefined)) { document.getElementById("ad-text:a").innerHTML = "Trying Blocking AD..."; }
+375.         if (document.getElementById("ad-text:b") != (null || undefined)) { document.getElementById("ad-text:b").innerHTML = "[Youtube AD block]"; }
+376.         let blockText = document.getElementsByClassName("ytp-ad-button-text");
+377.         if (blockText.length != 0) {
+378.             for (let i = 0; i < blockText.length; i++) {
+379.                 blockText[i].innerHTML = "Blocking..."
+380.             }
+381.         }
+382.     }
+383.  
+384.     var isCallSkipShitVideoAD = false;
+385.  
+386.     function skipShitVideoAD() {
+387.         if (document.getElementsByClassName("ytp-ad-button-icon").length != 0 && !isCallSkipShitVideoAD && !document.getElementsByClassName('ytp-ad-skip-button').length != 0) {
+388.             console.log("进入执行");
+389.  
+390.             isCallSkipShitVideoAD = true; //set identifier as true to avoid call this function again
+391.  
+392.             console.log("===>", new DocumentTimeline().currentTime);
+393.  
+394.             //Open the shit ad card
+395.             document.getElementsByClassName("ytp-ad-button-icon")[0].click();
+396.  
+397.             // Wait the card load
+398.             let shitIframeTimes = 0;
+399.             let iframeDomPosi = 0; //find the iframe document posi 
+400.             let shitIframeTimer = setInterval(function () {
+401.                 shitIframeTimes++;
+402.  
+403.                 setDisplay("none");
+404.  
+405.                 if (document.getElementById("iframe") != (null || undefined) || shitIframeTimes > 50) {
+406.                     console.log("[YT] Detected the ad penel");
+407.                     //find the iframe document posi 
+408.                     for (let i = 0; i < window.frames.length; i++) {
+409.                         let frameId = "iframe";
+410.                         try {
+411.                             if (window.frames[i].frameElement.id == frameId) {
+412.                                 iframeDomPosi = i;
+413.                                 break;
+414.                             }
+415.                         } catch (e) { /*console.log(e);*/ }
+416.                     }
+417.                     clearInterval(shitIframeTimer);
+418.                 }
+419.             }, 40);
+420.  
+421.             //Wait for document loaded
+422.             var waitCardTimes = 0;
+423.             let frameDom;
+424.             let waitCardTimer = setInterval(() => {
+425.                 waitCardTimes++;
+426.  
+427.                 let bodyNodesLength = 0; //iframe body length of child node
+428.                 try {
+429.                     bodyNodesLength = window.frames[iframeDomPosi].document.body.childNodes.length;
+430.                 } catch { }
+431.  
+432.                 if (waitCardTimes > 100 || bodyNodesLength != 0) {
+433.                     clearInterval(waitCardTimer);
+434.  
+435.                     //get the iframe document
+436.                     frameDom = window.frames[iframeDomPosi].document;
+437.                     try {
+438.                         let shitStopDisplayBtn = frameDom.childNodes[1].childNodes[1].childNodes[2].childNodes[0].childNodes[0].childNodes[1].childNodes[1].childNodes[0].childNodes[0].childNodes[0].childNodes[0].childNodes[1].childNodes[1].childNodes[0].childNodes[0];
+439.                         shitStopDisplayBtn.click();
+440.  
+441.                         let deleteClickTimes = 0;
+442.                         let deleteClickTimer = setInterval(() => {
+443.                             deleteClickTimes++;
+444.                             let isCatchErr = false;
+445.                             try {
+446.                                 let clickStopAdBtn = frameDom.childNodes[1].childNodes[1].childNodes[9].childNodes[0].childNodes[1].childNodes[1].childNodes[0].childNodes[0].childNodes[1].childNodes[1].childNodes[0];
+447.                                 clickStopAdBtn.click();
+448.                                 console.log("获取到移除按钮，移除===>", clickStopAdBtn);
+449.                             } catch (e) {
+450.                                 isCatchErr = true;
+451.                                 console.log("错误捕获");
+452.                             }
+453.  
+454.                             if (deleteClickTimes > 100 || isCatchErr == false) {
+455.                                 clearInterval(deleteClickTimer);
+456.                                 console.log("===>", new DocumentTimeline().currentTime);
+457.                             }
+458.                         }, 100);
+459.                     } catch (e) { console.log("2", e); }
+460.                 }
+461.             }, 100);
+462.  
+463.             //close the card
+464.             let checkCloseTimes = 0;
+465.             let checkCloseTimer = setInterval(() => {
+466.                 checkCloseTimes++;
+467.  
+468.                 var alreadyRemoveDisplay = "none";
+469.                 try {
+470.                     alreadyRemoveDisplay = getComputedStyle(frameDom.childNodes[1].childNodes[1].childNodes[2].childNodes[0].childNodes[0].childNodes[1].childNodes[0]).display;
+471.                 } catch { }
+472.  
+473.                 if (alreadyRemoveDisplay != "none" || checkCloseTimes > 200) {
+474.                     console.log("close card");
+475.                     clearInterval(checkCloseTimer);
+476.                     //* close the card
+477.                     let closeShitPanelBtn = frameDom.childNodes[1].childNodes[1].childNodes[2].childNodes[0].childNodes[0].childNodes[0].childNodes[2].childNodes[0].childNodes[0];
+478.                     closeShitPanelBtn.click();
+479.                     //* reset the backdrop, setTimeout didn't effect the use.
+480.                     setTimeout(() => {
+481.                         document.getElementsByTagName("tp-yt-iron-overlay-backdrop")[0].style.display = "";
+482.                         console.log("reback display");
+483.                     }, 1000);
+484.                 }
+485.             }, 100);
+486.  
+487.             function setDisplay(str) {
+488.                 //* Set the shit backdrop display "none" or ""
+489.                 try { document.getElementsByTagName("tp-yt-iron-overlay-backdrop")[0].style.display = str; } catch { }
+490.  
+491.                 //* Set the shit ad card display "none" or ""
+492.                 try { document.getElementById("iframe").parentNode.parentNode.style.display = str; } catch { }
+493.             }
+494.         }
+495.     }
+496. })();
